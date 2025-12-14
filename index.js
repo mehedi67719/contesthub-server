@@ -12,7 +12,7 @@ app.use(express.json())
 app.use(cors())
 
 
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = process.env.MONGO_URI
 
 
@@ -60,9 +60,9 @@ async function run() {
       const paymentinfo = req.body;
       const amount = parseInt(paymentinfo.cost) * 100
 
-    
+
       if (amount <= 0 || !paymentinfo.email || !paymentinfo.id) {
-          return res.status(400).send({ error: "Invalid payment information." });
+        return res.status(400).send({ error: "Invalid payment information." });
       }
 
       try {
@@ -85,9 +85,9 @@ async function run() {
             contestId: paymentinfo.id.toString()
           },
 
-          
+
           success_url: `${process.env.SITE_DOMAIN}/payment-success/${paymentinfo.id}?session_id={CHECKOUT_SESSION_ID}`,
-         
+
           cancel_url: `${process.env.SITE_DOMAIN}/payment-cancel/${paymentinfo.id}`,
         });
 
@@ -95,16 +95,41 @@ async function run() {
         res.send({ url: session.url })
 
       } catch (error) {
-          console.error("Error creating Stripe session:", error);
-          res.status(500).send({ error: "Failed to create checkout session" });
+        console.error("Error creating Stripe session:", error);
+        res.status(500).send({ error: "Failed to create checkout session" });
       }
     });
+
+
+
+
+    app.patch("/payment-success", async (req, res) => {
+      const sessionid = req.query.session_id;
+      const session = await stripe.checkout.sessions.retrieve(sessionid)
+      console.log("session :", session)
+      if (session.payment_status === 'paid') {
+        const id = session.metadata.contestId;
+        const query = { _id: new ObjectId(id) }
+        const update = {
+          $set: {
+            paymentstatus: "paid"
+          }
+        }
+        const result = await contestcollection.updateOne(query, update)
+
+        res.send(result)
+
+      }
+
+
+      
+    })
 
 
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
-    //
+
   }
 }
 run().catch(console.dir);
