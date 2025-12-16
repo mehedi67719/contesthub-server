@@ -28,7 +28,8 @@ async function run() {
     const db = client.db("Contesthub");
     const contestcollection = db.collection("contest");
     const paymentcollection = db.collection("payments");
-    const taskcollection=db.collection("tasks")
+    const taskcollection = db.collection("tasks")
+    const usercollection=db.collection("User")
 
     await paymentcollection.createIndex({ tranjectionid: 1 }, { unique: true });
 
@@ -43,12 +44,40 @@ async function run() {
     });
 
 
-    app.post("/tasks",async(req,res)=>{
-      const task=req.body;
-      console.log(task)
-      res.send({ message: "Task received successfully"})
+    app.post("/tasks", async (req, res) => {
+      const task = req.body;
+      
+      try {
+        const existingTask =await taskcollection.find({contest_id:task.contest_id})
+
+        if(existingTask){
+           return res.status(400).send({ message: "You have already submitted this task" });
+        }
+
+
+        const result = await taskcollection.insertOne(task)
+        res.send(result)
+      }
+      catch (err) {
+        res.status(500).send({ message: "Server error" });
+      }
     })
 
+
+    app.post("/user",async(req,res)=>{
+      const user=req.body;
+      try{
+        const cakeuser=await usercollection.findOne({email:user.email})
+        if(cakeuser){
+          return res.status(400).send({message:" the user data alrady added"})
+        }
+        const result=await usercollection.insertOne(user)
+        res.send(result)
+      }
+      catch(err){
+        res.status(500).send({message:"server error"})
+      }
+    })
 
 
 
