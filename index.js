@@ -3,6 +3,7 @@ const { v4: uuidv4 } = require('uuid');
 const cors = require('cors');
 require('dotenv').config();
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const e = require('express');
 const stripe = require('stripe')(process.env.PAYMENT_KEY);
 
 const app = express();
@@ -25,9 +26,9 @@ async function run() {
     const userCollection = db.collection("User");
 
 
-    await paymentCollection.createIndex({ tranjectionid: 1 }, { unique: true }).catch(() => {});
+    await paymentCollection.createIndex({ tranjectionid: 1 }, { unique: true }).catch(() => { });
 
- 
+
     const contestCount = await contestCollection.countDocuments();
     if (contestCount === 0) {
       await contestCollection.insertMany([
@@ -38,18 +39,49 @@ async function run() {
 
 
     app.get("/contests", async (req, res) => {
-      const contests = await contestCollection.find().toArray();
-      res.send(contests);
+      try {
+        const contests = await contestCollection.find({
+          $or: [
+            { status: "approve" },
+            { status: { $exists: false } }
+          ]
+        }).sort({ createdAt: -1 }).toArray();
+        res.send(contests);
+      }
+      catch {
+        res.status(500).send({ message: "Failed to retrieve contests." });
+      }
     });
+
+
+    app.get("/All-contests", async (req, res) => {
+      try {
+        const contests = await contestCollection.find().toArray();
+        res.send(contests);
+      }
+      catch {
+        res.status(500).send({ message: "Failed to retrieve contests." });
+      }
+    });
+
 
 
     app.get("/top-contests", async (req, res) => {
-      const top = await contestCollection.find().sort({ participantsCount: -1 }).limit(5).toArray();
-      res.send(top);
+      try {
+        const contests = await contestCollection.find({
+          $or: [
+            { status: "approve" },
+            { status: { $exists: false } }
+          ]}).sort({ participantsCount: -1 }).limit(5).toArray();
+        res.send(contests);
+      }
+      catch {
+        res.status(500).send({ message: "Failed to retrieve top contest" });
+      }
     });
 
- 
-    app.get("/participated", async (req, res) => {
+
+    app.get("/payment", async (req, res) => {
       const email = req.query.email;
       if (!email) return res.status(400).send({ message: "Email query required" });
 
@@ -61,7 +93,16 @@ async function run() {
       }
     });
 
-   
+    app.get("/user", async (req, res) => {
+      try {
+        const result = await userCollection.find().toArray()
+        res.send(result)
+      } catch {
+        res.status(500).send({ message: "Failed to load user" });
+      }
+    })
+
+
     app.post("/tasks", async (req, res) => {
       const task = req.body;
       try {
@@ -74,7 +115,7 @@ async function run() {
       }
     });
 
-    
+
     app.post("/user", async (req, res) => {
       const user = req.body;
       try {
@@ -87,7 +128,7 @@ async function run() {
       }
     });
 
-    
+
     app.post("/create-checkout-session", async (req, res) => {
       const { cost, email, id, name } = req.body;
       const amount = parseInt(cost) * 100;
@@ -95,9 +136,9 @@ async function run() {
 
       const session = await stripe.checkout.sessions.create({
         line_items: [
-          { 
-            price_data: { currency: "USD", unit_amount: amount, product_data: { name } }, 
-            quantity: 1 
+          {
+            price_data: { currency: "USD", unit_amount: amount, product_data: { name } },
+            quantity: 1
           }
         ],
         customer_email: email,
@@ -110,11 +151,16 @@ async function run() {
       res.send({ url: session.url });
     });
 
-   
-    app.patch("/payment-success", async (req, res) => {
+
+
+
+
+    app.get("/payment-success", async (req, res) => {
       try {
         const sessionId = req.query.session_id;
         const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+        // console.log(session)
         if (!session || session.payment_status !== "paid") {
           return res.status(400).send({ success: false, error: "Payment not completed" });
         }
@@ -123,26 +169,20 @@ async function run() {
         const contestId = session.metadata.contestId;
         const trackingid = uuidv4();
 
-        const contest = await contestCollection.findOne({ _id: new ObjectId(contestId) });
+        const contest = await contestCollection.findOne({ _id: contestId });
 
-    
-        if (contest && (!contest.paymentstatus || contest.paymentstatus !== "paid")) {
-          await contestCollection.updateOne(
-            { _id: new ObjectId(contestId) },
-            { $set: { paymentstatus: "paid", trackingid }, $inc: { participantsCount: 1 } }
-          );
-        }
+        // console.log(contest)
 
-      
+
         const payment = {
           amount: session.amount_total / 100,
           currency: session.currency,
           Customer_email: session.customer_email,
           contest_id: contestId,
-          paymentstatus: session.payment_status,
+          payment_status: "paid",
           tranjectionid: transactionId,
           paidat: new Date(),
-          contest_name: contest.name,
+          contest_name: contest?.name,
           trackingid
         };
 
@@ -152,12 +192,43 @@ async function run() {
           { upsert: true }
         );
 
-        res.send({ success: true, trackingid, tranjectionid: transactionId });
+        await contestCollection.updateOne(
+          { _id: new ObjectId(contestId) },
+          { $inc: { participantsCount: 1 } }
+        );
+
+        res.send({ success: true, trackingid });
       } catch (error) {
-        console.error(error);
-        res.status(500).send({ success: false, error: "Something went wrong" });
+        res.status(500).send({ success: false, error: "Server Error" });
       }
     });
+
+
+
+    app.patch("/contest-status/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const { status } = req.body;
+
+
+        console.log(id, status)
+
+
+        const filter = { _id: id }
+        const updatedoc = {
+          $set: { status: status }
+        }
+
+        const result = await contestCollection.updateOne(filter, updatedoc);
+        res.send(result);
+      }
+      catch (err) {
+        console.log(err)
+        res.status(500).send({ message: "Internal Server Error" })
+      }
+    })
+
+
 
     await client.db("admin").command({ ping: 1 });
     console.log("MongoDB connected successfully!");
