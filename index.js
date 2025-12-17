@@ -72,7 +72,8 @@ async function run() {
           $or: [
             { status: "approve" },
             { status: { $exists: false } }
-          ]}).sort({ participantsCount: -1 }).limit(5).toArray();
+          ]
+        }).sort({ participantsCount: -1 }).limit(5).toArray();
         res.send(contests);
       }
       catch {
@@ -100,6 +101,40 @@ async function run() {
       } catch {
         res.status(500).send({ message: "Failed to load user" });
       }
+    })
+
+
+        app.get("/role-user", async (req, res) => {
+      try {
+        const result = await userCollection.find({role:"requestcreator" || "requestadmin"}).toArray()
+        res.send(result)
+      } catch {
+        res.status(500).send({ message: "Failed to load user" });
+      }
+    })
+
+
+
+
+    app.post("/user-request", async (req, res) => {
+      const { role, useremail } = req.body;
+
+      try {
+        const existingUser = await userCollection.findOne({email:useremail})
+
+        if (!existingUser) return res.status(400).send({ message: "User eamil not found" });
+
+
+        const result = await userCollection.updateOne(
+          {email:useremail},
+          {$set:{role}}
+        )
+        res.send(result)
+      }
+      catch {
+        res.status(500).send({ message: "Server error" });
+      }
+
     })
 
 
