@@ -65,6 +65,20 @@ async function run() {
     });
 
 
+    app.post("/All-contests", async (req, res) => {
+      try {
+        const data = req.body;
+        const result=await contestCollection.insertOne(data)
+        res.send(result)
+      }
+      catch{
+        res.status(500).send({ message: "Server error" })
+      }
+      
+
+    })
+
+
 
     app.get("/top-contests", async (req, res) => {
       try {
@@ -104,14 +118,14 @@ async function run() {
     })
 
 
-        app.get("/role-user", async (req, res) => {
-      try {
-        const result = await userCollection.find({role:"requestcreator" || "requestadmin"}).toArray()
-        res.send(result)
-      } catch {
-        res.status(500).send({ message: "Failed to load user" });
-      }
-    })
+    //     app.get("/role-user", async (req, res) => {
+    //   try {
+    //     const result = await userCollection.find({role:"requestcreator" || "requestadmin"}).toArray()
+    //     res.send(result)
+    //   } catch {
+    //     res.status(500).send({ message: "Failed to load user" });
+    //   }
+    // })
 
 
 
@@ -119,15 +133,17 @@ async function run() {
     app.post("/user-request", async (req, res) => {
       const { role, useremail } = req.body;
 
+      // console.log(role,useremail)
+
       try {
-        const existingUser = await userCollection.findOne({email:useremail})
+        const existingUser = await userCollection.findOne({ email: useremail })
 
         if (!existingUser) return res.status(400).send({ message: "User eamil not found" });
 
 
         const result = await userCollection.updateOne(
-          {email:useremail},
-          {$set:{role}}
+          { email: useremail },
+          { $set: { role } }
         )
         res.send(result)
       }
@@ -249,7 +265,7 @@ async function run() {
         console.log(id, status)
 
 
-        const filter = { _id: id }
+        const filter = { _id:new ObjectId(id)}
         const updatedoc = {
           $set: { status: status }
         }
