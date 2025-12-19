@@ -22,8 +22,9 @@ async function run() {
     const db = client.db("Contesthub");
     const contestCollection = db.collection("contest");
     const paymentCollection = db.collection("payments");
-    const taskCollection = db.collection("tasks");
+    const tasksCollection = db.collection("tasks");
     const userCollection = db.collection("User");
+    const wincollection = db.collection("win");
 
 
     await paymentCollection.createIndex({ tranjectionid: 1 }, { unique: true }).catch(() => { });
@@ -54,6 +55,21 @@ async function run() {
     });
 
 
+
+    app.get("/contests/:email", async (req, res) => {
+      try {
+        const email = req.params.email
+        const contests = await contestCollection.find({ creatorEmail: email }).toArray();
+        res.send(contests);
+      }
+      catch {
+        res.status(500).send({ message: "Failed to retrieve contests." });
+      }
+    });
+
+
+
+
     app.get("/All-contests", async (req, res) => {
       try {
         const contests = await contestCollection.find().toArray();
@@ -68,14 +84,40 @@ async function run() {
     app.post("/All-contests", async (req, res) => {
       try {
         const data = req.body;
-        const result=await contestCollection.insertOne(data)
+        const result = await contestCollection.insertOne(data)
         res.send(result)
       }
-      catch{
+      catch {
         res.status(500).send({ message: "Server error" })
       }
-      
 
+
+    })
+
+    app.post("/win", async (req, res) => {
+      try {
+        const { taskId, contestname, winnerEmail,price } = req.body;
+        const data = { taskId, contestname, winnerEmail,price };
+        console.log(data)
+        const result = await wincollection.insertOne(data)
+        res.send(result)
+      }
+      catch {
+        res.status(500).send({ message: "Server error" })
+      }
+
+
+    })
+
+
+    app.get("/win", async (req, res) => {
+      try {
+        const result = await wincollection.find().toArray()
+        res.send(result)
+      }
+      catch {
+        res.status(500).send({ message: "server error" });
+      }
     })
 
 
@@ -118,6 +160,17 @@ async function run() {
     })
 
 
+    app.get("/task", async (req, res) => {
+      try {
+        const result = await tasksCollection.find().toArray()
+        res.send(result)
+      }
+      catch {
+        res.status(500).send({ message: "Server error" });
+      }
+    })
+
+
     //     app.get("/role-user", async (req, res) => {
     //   try {
     //     const result = await userCollection.find({role:"requestcreator" || "requestadmin"}).toArray()
@@ -156,12 +209,14 @@ async function run() {
 
     app.post("/tasks", async (req, res) => {
       const task = req.body;
+      console.log(task)
       try {
-        const existingTask = await taskCollection.findOne({ contest_id: task.contest_id, user_email: task.user_email });
+        const existingTask = await tasksCollection.findOne({ contest_id: task.contest_id, user_email: task.user_email });
         if (existingTask) return res.status(400).send({ message: "Task already submitted" });
-        const result = await taskCollection.insertOne(task);
+        const result = await tasksCollection.insertOne(task);
         res.send(result);
-      } catch {
+      } catch (err) {
+        console.log(err)
         res.status(500).send({ message: "Server error" });
       }
     });
@@ -265,7 +320,7 @@ async function run() {
         console.log(id, status)
 
 
-        const filter = { _id:new ObjectId(id)}
+        const filter = { _id: new ObjectId(id) }
         const updatedoc = {
           $set: { status: status }
         }
