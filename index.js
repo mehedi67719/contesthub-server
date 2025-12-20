@@ -55,6 +55,19 @@ async function run() {
     });
 
 
+    app.delete("/contests/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        console.log(id)
+        const result = await contestCollection.deleteOne({ _id: new ObjectId(id) })
+        res.send(result)
+      }
+      catch {
+        res.status(404).send('Serverr error');
+      }
+    })
+
+
 
     app.get("/contests/:email", async (req, res) => {
       try {
@@ -96,8 +109,8 @@ async function run() {
 
     app.post("/win", async (req, res) => {
       try {
-        const { taskId, contestname, winnerEmail,price } = req.body;
-        const data = { taskId, contestname, winnerEmail,price };
+        const { taskId, contestname, winnerEmail, price } = req.body;
+        const data = { taskId, contestname, winnerEmail, price };
         console.log(data)
         const result = await wincollection.insertOne(data)
         res.send(result)
@@ -113,6 +126,19 @@ async function run() {
     app.get("/win", async (req, res) => {
       try {
         const result = await wincollection.find().toArray()
+        res.send(result)
+      }
+      catch {
+        res.status(500).send({ message: "server error" });
+      }
+    })
+
+
+    app.get("/win/:email", async (req, res) => {
+      try {
+        const email = req.params.email
+        console.log(email)
+        const result = await wincollection.find({ winnerEmail: email }).toArray()
         res.send(result)
       }
       catch {
@@ -171,14 +197,6 @@ async function run() {
     })
 
 
-    //     app.get("/role-user", async (req, res) => {
-    //   try {
-    //     const result = await userCollection.find({role:"requestcreator" || "requestadmin"}).toArray()
-    //     res.send(result)
-    //   } catch {
-    //     res.status(500).send({ message: "Failed to load user" });
-    //   }
-    // })
 
 
 
