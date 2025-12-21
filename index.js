@@ -11,13 +11,15 @@ app.use(express.json());
 
 app.use(cors({
   origin: [
-    'http://localhost:5173', 
-    'https://contesthub-client.web.app', // আপনার ফ্রন্টেন্ডের লাইভ ইউআরএল এখানে দিন
-    'https://contesthub-client.firebaseapp.com' 
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'https://contesthub-client.web.app', 
+    'https://contesthub-client.firebaseapp.com'
   ],
-  credentials: true
+  credentials: true,
+  methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
 }));
-
 if (!admin.apps.length) {
   const serviceAccount = JSON.parse(process.env.FIREBASE_CREDENTIALS);
   admin.initializeApp({
