@@ -8,18 +8,13 @@ const admin = require("firebase-admin");
 
 const app = express();
 app.use(express.json());
+
 app.use(cors({
-  origin: function(origin, callback) {
-    const allowedOrigins = [
-      'http://localhost:5174', 
-      'https://contesthub-server-git-main-mehedi67719s-projects.vercel.app'
-    ];
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: [
+    'http://localhost:5173', 
+    'https://contesthub-client.web.app', // আপনার ফ্রন্টেন্ডের লাইভ ইউআরএল এখানে দিন
+    'https://contesthub-client.firebaseapp.com' 
+  ],
   credentials: true
 }));
 
@@ -211,7 +206,7 @@ app.post("/user", veryfbtocken, async (req, res) => {
     const { userCollection } = await connectDB();
     const user = req.body;
     const existingUser = await userCollection.findOne({ email: user.email });
-    if (existingUser) return res.status(400).send({ message: "User already exists" });
+    if (existingUser) return res.status(200).send({ message: "User already exists" });
     const result = await userCollection.insertOne(user);
     res.send(result);
   } catch {
@@ -309,6 +304,11 @@ app.patch("/contest-status/:id", async (req, res) => {
   } catch {
     res.status(500).send({ message: "Internal Server Error" });
   }
+});
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });
 
 module.exports = app;
