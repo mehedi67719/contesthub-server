@@ -15,7 +15,8 @@ const port = process.env.PORT || 3000;
 
 
 
-const serviceAccount = require("./firebase admin sdk.json");
+// const serviceAccount = require("./firebase admin sdk.json");
+const serviceAccount = JSON.parse(process.env.FIREBASE_CREDENTIALS);
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
@@ -31,7 +32,7 @@ const veryfbtocken= async(req,res,next)=>{
   console.log(accesstocken)
 
   if(!accesstocken){
-    return res.send(401).send({message:"Unauthrize error"})
+    return res.status(401).send({ message: "Unauthorized error" })
   }
 
 
