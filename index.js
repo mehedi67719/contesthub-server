@@ -5,26 +5,62 @@ require('dotenv').config();
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const e = require('express');
 const stripe = require('stripe')(process.env.PAYMENT_KEY);
-
+const admin = require("firebase-admin");
 const app = express();
 app.use(express.json());
 app.use(cors());
 
 const port = process.env.PORT || 3000;
 
+
+
+
+const serviceAccount = require("./firebase admin sdk.json");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
+
+
+
+
+
+const veryfbtocken= async(req,res,next)=>{
+
+  const accesstocken=req.body?.authorization
+  console.log(accesstocken)
+
+  if(!accesstocken){
+    return res.send(401).send({message:"Unauthrize error"})
+  }
+
+
+  try{
+    const userinfo=await admin.auth().verifyIdToken(accesstocken);
+    console.log(userinfo)
+     next()
+  }
+  catch{
+    return res.send(401).send({message:"Unauthrize error"})
+  }
+ 
+}
+
 const client = new MongoClient(process.env.MONGO_URI, {
   serverApi: { version: ServerApiVersion.v1, strict: true, deprecationErrors: true },
 });
+
+let contestCollection, paymentCollection, tasksCollection, userCollection, wincollection;
 
 async function run() {
   try {
     await client.connect();
     const db = client.db("Contesthub");
-    const contestCollection = db.collection("contest");
-    const paymentCollection = db.collection("payments");
-    const tasksCollection = db.collection("tasks");
-    const userCollection = db.collection("User");
-    const wincollection = db.collection("win");
+    contestCollection = db.collection("contest");
+    paymentCollection = db.collection("payments");
+    tasksCollection = db.collection("tasks");
+    userCollection = db.collection("User");
+    wincollection = db.collection("win");
 
 
     await paymentCollection.createIndex({ tranjectionid: 1 }, { unique: true }).catch(() => { });
@@ -58,7 +94,7 @@ async function run() {
     app.delete("/contests/:id", async (req, res) => {
       try {
         const id = req.params.id;
-        console.log(id)
+
         const result = await contestCollection.deleteOne({ _id: new ObjectId(id) })
         res.send(result)
       }
@@ -68,8 +104,52 @@ async function run() {
     })
 
 
+    app.get("/contests/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
 
-    app.get("/contests/:email", async (req, res) => {
+        const result = await contestCollection.findOne({ _id: new ObjectId(id) })
+        res.send(result)
+      }
+      catch {
+        res.status(404).send('Serverr error');
+      }
+    })
+
+
+    app.patch("/contests/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const updatedData = req.body;
+
+        const filter = { _id: new ObjectId(id) };
+        const updateDoc = {
+          $set: {
+            name: updatedData.name,
+            image: updatedData.image,
+            description: updatedData.description,
+            entryFee: Number(updatedData.entryFee),
+            price: Number(updatedData.price),
+            prizeMoney: Number(updatedData.prizeMoney),
+            taskInstruction: updatedData.taskInstruction,
+            contestType: updatedData.contestType,
+            deadline: new Date(updatedData.deadline)
+          }
+        };
+
+        const result = await contestCollection.updateOne(filter, updateDoc);
+        res.send(result);
+
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ success: false, error: "Something went wrong" });
+      }
+    });
+
+
+
+
+    app.get("/contests/user/:email", async (req, res) => {
       try {
         const email = req.params.email
         const contests = await contestCollection.find({ creatorEmail: email }).toArray();
@@ -109,8 +189,8 @@ async function run() {
 
     app.post("/win", async (req, res) => {
       try {
-        const { taskId, contestname, winnerEmail, price } = req.body;
-        const data = { taskId, contestname, winnerEmail, price };
+        const { taskId, contestname, winnerEmail, price,contestId } = req.body;
+        const data = { taskId, contestname, winnerEmail, price ,contestId};
         console.log(data)
         const result = await wincollection.insertOne(data)
         res.send(result)
@@ -120,6 +200,27 @@ async function run() {
       }
 
 
+    })
+
+
+
+    app.get("/win-leaderboard", async (req, res) => {
+      try {
+        const result = await wincollection.aggregate([
+          {
+            $group: {
+              _id: "$winnerEmail",
+              totalWins: { $sum: 1 },
+            }
+          },
+          { $sort: { totalWins: -1 } }
+        ]).toArray();
+
+        res.send(result)
+      }
+      catch {
+        res.status(500).send({ message: "server error" });
+      }
     })
 
 
@@ -137,8 +238,22 @@ async function run() {
     app.get("/win/:email", async (req, res) => {
       try {
         const email = req.params.email
-        console.log(email)
+    
         const result = await wincollection.find({ winnerEmail: email }).toArray()
+        res.send(result)
+      }
+      catch {
+        res.status(500).send({ message: "server error" });
+      }
+    })
+
+
+
+    app.get("/win/contest/:id", async (req, res) => {
+      try {
+        const id = req.params.id
+        
+        const result = await wincollection.find({ contestId: id }).toArray()
         res.send(result)
       }
       catch {
@@ -198,6 +313,20 @@ async function run() {
 
 
 
+    app.get("/task/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        // console.log(id)
+        const result = await tasksCollection.find({ contest_id: id }).toArray()
+        res.send(result)
+      }
+      catch {
+        res.status(500).send({ message: "Server error" });
+      }
+    })
+
+
+
 
 
 
@@ -240,7 +369,7 @@ async function run() {
     });
 
 
-    app.post("/user", async (req, res) => {
+    app.post("/user",veryfbtocken, async (req, res) => {
       const user = req.body;
       try {
         const existingUser = await userCollection.findOne({ email: user.email });
@@ -365,3 +494,4 @@ run().catch(console.dir);
 
 app.get("/", (req, res) => res.send("Server running"));
 app.listen(port, () => console.log(`Server running on port ${port}`));
+// module.exports = app
