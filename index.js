@@ -9,7 +9,7 @@ const admin = require("firebase-admin");
 const app = express();
 app.use(express.json());
 app.use(cors({
-  origin: 'http://localhost:5174',
+  origin: ['http://localhost:5174', 'https://contesthub-server-git-main-mehedi67719s-projects.vercel.app/'],
   credentials: true
 }));
 
