@@ -9,7 +9,17 @@ const admin = require("firebase-admin");
 const app = express();
 app.use(express.json());
 app.use(cors({
-  origin: ['http://localhost:5174', 'https://contesthub-server-git-main-mehedi67719s-projects.vercel.app/'],
+  origin: function(origin, callback) {
+    const allowedOrigins = [
+      'http://localhost:5174', 
+      'https://contesthub-server-git-main-mehedi67719s-projects.vercel.app'
+    ];
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 
