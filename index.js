@@ -390,7 +390,7 @@ async function run() {
         const contestId = session.metadata.contestId;
         const trackingid = uuidv4();
 
-        const contest = await contestCollection.findOne({ _id: new ObjectId (contestId) });
+        const contest = await contestCollection.findOne({ _id:contestId });
 
         // console.log(contest)
 
