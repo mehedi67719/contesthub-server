@@ -390,11 +390,12 @@ async function run() {
         const contestId = session.metadata.contestId;
         const trackingid = uuidv4();
 
-        const contest = await contestCollection.findOne({ _id: contestId });
+        const contest = await contestCollection.findOne({ _id: new ObjectId (contestId) });
 
         // console.log(contest)
 
 
+       
         const payment = {
           amount: session.amount_total / 100,
           currency: session.currency,
